@@ -26,21 +26,50 @@ Requirements: Android device, Roblox installed, Macrorify installed. No root, no
   - `reward`
 - Confirm the names match `CFG.tmpl*` exactly (case-sensitive, no file extension).
 
-## 4. Configure resolution and regions
+## 4. Configure the macro (EDIT THESE IN THE SCRIPT)
 
-- Open `StealAnEgg_Fishing.js` and set `CFG.region*` to match where each element appears on your screen (relative 0.0–1.0). Regions are scaled from your device width/height at runtime, so one config works across portrait resolutions.
-- Example for a bottom-right Cast button: `regionCast: [0.55, 0.75, 0.98, 0.98]`.
-- Set `CFG.tapSpeedTps` to your desired Click Fast / Perfect taps per second (default 10).
-- Set `CFG.fishMode` to `'tap'` (rapid tapping) or `'hold'` (long press) depending on the minigame.
-- Set `CFG.scanRate` (scans per second). Lower = friendlier on battery but slower detection (default 2).
-- Set `CFG.threshold` (0.0–1.0) for image match sensitivity (default 0.85).
+Open `StealAnEgg_Fishing.js` and adjust the `CFG` block at the top:
 
-## 5. Run
+| Setting | What it does | Example |
+|---|---|---|
+| `tapSpeedTps` | Clicks per second in Click Fast / Perfect minigame | `10` |
+| `fishMode` | `'tap'` (rapid tapping) or `'hold'` (long press) | `'tap'` |
+| `holdDurationMs` | Hold duration when `fishMode === 'hold'` | `600` |
+| `threshold` | Image match sensitivity (0.0–1.0), higher = stricter | `0.85` |
+| `scanRate` | Detection scans per second (lower = friendlier on battery) | `2` |
+| `regionCast/Prompt/Click/Reward` | Detection area `[left, top, right, bottom]` (0.0–1.0) | `[0.25, 0.55, 0.95, 0.98]` |
+| `tmplCast/Prompt/Click/Reward` | Template names in Macrorify Resources (no extension) | `'cast_button'` |
+| `ocrPrompt/Click/Reward` | OCR keyword fallback per stage | `'FISH'`, `'PERFECT'`, `'COLLECT'` |
+| `diagnosticMode` | `true` = detect UI without tapping (verify templates first) | `false` |
+| `testMode` | `true` = run exactly ONE cycle then stop | `false` |
+| `strictValidation` | `true` = stop on startup if any template missing | `false` |
+
+## 5. Startup validation
+
+When you start the macro, it validates all 4 templates:
+- If a template is found on screen: `VALIDATED: ... found on screen`
+- If not found: `MISSING: ... not found on screen` + hint to check Resources
+- With `strictValidation: true`, the macro stops if any template is missing
+- With `strictValidation: false` (default), it warns but continues
+
+## 6. Diagnostic mode (recommended first run)
+
+Set `diagnosticMode: true` and run the macro. It will detect all 4 UI elements
+WITHOUT tapping anything and report whether each was found. Use this to confirm
+your templates match before enabling automation.
+
+## 7. Test mode
+
+Set `testMode: true` and run the macro. It performs exactly ONE complete fishing
+cycle (cast → prompt → click → fish → complete → collect) then stops. Use this
+to verify the full flow end-to-end once before leaving it running.
+
+## 8. Run
 
 - Open Roblox -> Steal an Egg -> go to the fishing area. Make sure the Cast button is visible.
 - Return to Macrorify, select `StealAnEgg_Fishing.js`, press Play/Start.
 - Use Macrorify's floating controls to Pause / Resume / Stop. These pause and resume the script engine directly.
 
-## 6. Stop safely
+## 9. Stop safely
 
 - Press Stop in Macrorify's floating controls, or disable the Accessibility service, to end the macro immediately.

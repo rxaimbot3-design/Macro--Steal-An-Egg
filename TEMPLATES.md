@@ -4,12 +4,12 @@ The macro does NOT contain hardcoded coordinates. It uses image templates you ca
 
 ## Required templates
 
-| Template name (CFG key) | What to capture | Detection region |
-|---|---|---|
-| `cast_button` (tmplCast) | The idle fishing rod / Cast button (tap to start fishing) | `regionCast` |
-| `prompt` (tmplPrompt) | The fishing prompt that appears right after casting | `regionPrompt` |
-| `click_perfect` (tmplClick) | The Click Fast / Perfect indicator during the minigame | `regionClick` |
-| `reward` (tmplReward) | The completion / Collect reward screen or button | `regionReward` |
+| Template name (CFG key) | What to capture | Detection region | Tap target? |
+|---|---|---|---|
+| `cast_button` (tmplCast) | The idle fishing rod / Cast button (tap to start fishing) | `regionCast` | Yes |
+| `prompt` (tmplPrompt) | The fishing prompt that appears right after casting | `regionPrompt` | No (OCR OK) |
+| `click_perfect` (tmplClick) | The Click Fast / Perfect indicator during the minigame | `regionClick` | Yes |
+| `reward` (tmplReward) | The completion / Collect reward screen or button | `regionReward` | Yes |
 
 **Important:** Use the exact names above (case-sensitive). Do NOT include `.png` — Macrorify Resources store templates by name.
 
