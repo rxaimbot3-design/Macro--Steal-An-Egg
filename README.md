@@ -21,16 +21,16 @@ A fully automatic Android macro for the Roblox game "Steal an Egg" using Macrori
 
 1. Install Macrorify on your Android device and grant Accessibility + Display-over-apps permissions.
 2. Copy `StealAnEgg_Fishing.js` into Macrorify (Scripts).
-3. Capture 4 image templates in Macrorify -> Resources -> Images: `cast_button`, `prompt`, `click_perfect`, `reward` (see `TEMPLATES.md`).
-4. Edit the `CFG` block in `StealAnEgg_Fishing.js` to match your screen regions and preferences (see `INSTALL_ANDROID.md`).
+3. Capture 5 image templates in Macrorify -> Resources -> Images: `cast_button`, `prompt`, `click_perfect`, `complete`, `collect` (see `TEMPLATES.md`).
+4. Edit the configuration variables in `StealAnEgg_Fishing.js` to match your screen regions and preferences (see `INSTALL_ANDROID.md`).
 5. Open Roblox -> Steal an Egg -> go to the fishing spot.
 6. Run the macro from Macrorify. Use floating controls to Pause / Resume / Stop.
 
 ## Modes
 
-- **Diagnostic mode** (`diagnosticMode: true`): Detects all UI elements WITHOUT tapping. Run this first to verify your templates match.
-- **Test mode** (`testMode: true`): Performs exactly ONE complete fishing cycle then stops.
-- **Strict validation** (`strictValidation: true`): Stops the macro on startup if any template is missing.
+- **Diagnostic mode** (`CFG_diagnosticMode = true`): Detects all UI elements WITHOUT tapping. Run this first to verify your templates match.
+- **Test mode** (`CFG_testMode = true`): Performs complete fishing cycles until ONE succeeds, then stops.
+- **Strict validation** (`CFG_strictValidation = true`): Stops the macro on startup if any template is missing.
 
 ## Important
 
