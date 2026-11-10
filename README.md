@@ -29,7 +29,7 @@ A fully automatic Android macro for the Roblox game "Steal an Egg" using Macrori
 ## Modes
 
 - **Diagnostic mode** (`CFG_diagnosticMode = true`): Tests one template at a time, detects all UI elements WITHOUT tapping. Run this first to verify your templates match.
-- **Test mode** (`CFG_testMode = true`): Performs complete fishing cycles until ONE succeeds, then stops. Failed cycles retry safely.
+- **Test mode** (`CFG_testMode = true`): Performs complete fishing cycles until ONE succeeds, then stops. Failed cycles retry safely, capped by `CFG_testMaxRetries` (default 10).
 - **Strict validation** (`CFG_strictValidation = true`): Enables strict informational checks.
 
 ## Important

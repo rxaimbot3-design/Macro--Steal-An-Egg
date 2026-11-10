@@ -24,9 +24,10 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 1. Set `CFG_testMode = true` and `CFG_diagnosticMode = false` in the script.
 2. Run the macro. It performs complete cycles until ONE succeeds, then stops.
 3. If a cycle fails (e.g., collect button not found), it retries safely.
-4. Confirm it logs every stage: DETECT_CAST → CAST → WAIT_PROMPT → WAIT_CLICK → FISHING → WAIT_COMPLETE → COLLECT → IDLE.
-5. Confirm taps land on the correct UI elements, not nearby buttons.
-6. **A cycle only counts as successful when reward collection completes.**
+4. **Retry limit:** `CFG_testMaxRetries` (default `10`) caps unsuccessful attempts. After that limit, testMode stops safely rather than looping endlessly. Set to `0` for unlimited retries.
+5. Confirm it logs every stage: DETECT_CAST → CAST → WAIT_PROMPT → WAIT_CLICK → FISHING → WAIT_COMPLETE → COLLECT → IDLE.
+6. Confirm taps land on the correct UI elements, not nearby buttons.
+7. **A cycle only counts as successful when reward collection completes.**
 
 ## Per-stage testing
 

@@ -45,6 +45,7 @@ Open `StealAnEgg_Fishing.js` and adjust the configuration variables at the top:
 | `CFG_completeTimeoutMs` | Max ms to wait for completion | `15000` |
 | `CFG_ocrShortTimeoutMs` | Short ms window for OCR fallback check after image miss | `3000` |
 | `CFG_maxRetries` | Max consecutive retries before continuing to next cycle | `3` |
+| `CFG_testMaxRetries` | Max unsuccessful testMode cycles before stopping safely (0 = unlimited) | `10` |
 | `CFG_tapJitterPx` | Jitter radius in pixels added to each tap. **0 = accurate tapping** | `0` |
 | `CFG_regionCast/Prompt/Click/Complete/Collect` | Detection area `[left, top, right, bottom]` (0.0–1.0) | See script |
 | `CFG_tmplCast/Prompt/Click/Complete/Collect` | Template names in Macrorify Resources (no extension) | See script |

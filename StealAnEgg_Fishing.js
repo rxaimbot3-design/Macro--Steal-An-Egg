@@ -53,6 +53,7 @@ var CFG_ocrComplete = "COMPLETE"
 
 var CFG_diagnosticMode = false
 var CFG_testMode = false
+var CFG_testMaxRetries = 10
 var CFG_strictValidation = false
 
 // ============================================================================
@@ -64,6 +65,7 @@ var ST_stage = "IDLE"
 var ST_retries = 0
 var ST_cycleCount = 0
 var ST_cycleSuccess = false
+var ST_testRetries = 0
 
 // Required templates: [name, regionArray, label, requiresTap]
 // Each template is validated independently. Not all screens are visible at once.
@@ -135,6 +137,11 @@ fun validateConfig() {
 
     if (CFG_maxRetries < 0) {
         log("ERROR: maxRetries must be 0 or greater")
+        ok = false
+    }
+
+    if (CFG_testMaxRetries < 0) {
+        log("ERROR: testMaxRetries must be 0 or greater")
         ok = false
     }
 
@@ -523,6 +530,7 @@ fun main() {
     ST_retries = 0
     ST_cycleCount = 0
     ST_cycleSuccess = false
+    ST_testRetries = 0
 
     log("Steal An Egg Fishing Macro started")
 
@@ -548,13 +556,20 @@ fun main() {
     while (ST_running && !ST_stop) {
         runCycle()
 
-        // Test mode: stop only after one successfully completed cycle
+        // Test mode: stop only after one successfully completed cycle,
+        // or stop safely after CFG_testMaxRetries unsuccessful attempts.
         if (CFG_testMode) {
             if (ST_cycleSuccess) {
                 log("Test mode: completed 1 successful cycle. Stopping.")
                 ST_stop = true
             } else {
-                log("Test mode: cycle did not complete successfully. Retrying safely.")
+                ST_testRetries = ST_testRetries + 1
+                if (CFG_testMaxRetries > 0 && ST_testRetries >= CFG_testMaxRetries) {
+                    log("Test mode: max retries reached (" + CFG_testMaxRetries + "). Stopping safely.")
+                    ST_stop = true
+                } else {
+                    log("Test mode: cycle did not complete successfully. Retrying safely.")
+                }
             }
         }
     }
