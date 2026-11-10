@@ -33,42 +33,46 @@ Open `StealAnEgg_Fishing.js` and adjust the configuration variables at the top:
 
 | Setting | What it does | Default |
 |---|---|---|
-| `CFG_tapSpeedTps` | Clicks per second in Click Fast / Perfect minigame. **Measure this on your device — do not assume a value.** | `5` |
+| `CFG_tapSpeedTps` | Target taps per second in Click Fast / Perfect minigame. **Measure this on your device — do not assume it is achievable.** | `5` |
 | `CFG_fishMode` | `'tap'` (rapid tapping) or `'hold'` (long press) for the minigame | `'tap'` |
 | `CFG_holdDurationMs` | Hold duration in ms when `CFG_fishMode === 'hold'` | `600` |
 | `CFG_threshold` | Image match sensitivity (0.0–1.0), higher = stricter | `0.85` |
 | `CFG_scanRateIdle` | Detection scans per second during idle stages (lower = friendlier on battery) | `1` |
 | `CFG_scanRateClick` | Detection scans per second during click-indicator stages (higher = more responsive) | `3` |
 | `CFG_castTimeoutMs` | Max ms to wait for Cast button | `15000` |
-| `CFG_promptTimeoutMs` | Max ms to wait for fishing prompt | `20000` |
+| `CFG_promptTimeoutMs` | Max ms to wait for fishing prompt | `15000` |
 | `CFG_fishTimeoutMs` | Max ms for fishing tap/hold sequence | `30000` |
-| `CFG_completeTimeoutMs` | Max ms to wait for completion / collect | `15000` |
+| `CFG_completeTimeoutMs` | Max ms to wait for completion | `15000` |
+| `CFG_ocrShortTimeoutMs` | Short ms window for OCR fallback check after image miss | `3000` |
 | `CFG_maxRetries` | Max consecutive retries before continuing to next cycle | `3` |
 | `CFG_tapJitterPx` | Jitter radius in pixels added to each tap. **0 = accurate tapping** | `0` |
 | `CFG_regionCast/Prompt/Click/Complete/Collect` | Detection area `[left, top, right, bottom]` (0.0–1.0) | See script |
 | `CFG_tmplCast/Prompt/Click/Complete/Collect` | Template names in Macrorify Resources (no extension) | See script |
 | `CFG_ocrPrompt/Complete` | OCR keyword fallback per stage | `'FISH'`, `'COMPLETE'` |
 | `CFG_diagnosticMode` | `true` = detect UI without tapping (verify templates first) | `false` |
-| `CFG_testMode` | `true` = run exactly ONE successful cycle then stop | `false` |
-| `CFG_strictValidation` | `true` = stop on startup if any template missing | `false` |
+| `CFG_testMode` | `true` = run cycles until ONE succeeds, then stop | `false` |
+| `CFG_strictValidation` | `true` = enable strict informational checks | `false` |
 
 ## 5. Startup validation
 
-When you start the macro, it validates:
-1. **Config**: All values are within valid ranges
-2. **Templates**: Each of the 5 templates is checked independently on screen
-
-Template validation does NOT expect all 5 screens to be visible at once. It checks whether each template resource exists and is currently visible. If a template is not visible, navigate to that screen state and re-run.
-
-With `CFG_strictValidation = true`, the macro stops if any template is missing. With `false` (default), it warns but continues.
+When you start the macro:
+1. **Config validation**: All configuration values are checked for valid ranges. Invalid values stop the macro before any automation runs.
+2. **Template check (informational)**: Each template is checked against the CURRENT screen only. This is informational — it does NOT stop the macro. Not all fishing-stage templates are visible simultaneously; you may be on a different stage.
 
 ## 6. Diagnostic mode (recommended first run)
 
-Set `CFG_diagnosticMode = true` and run the macro. It will detect all 5 UI elements WITHOUT tapping anything and report whether each was found. Navigate to each game screen state before running. Use this to confirm your templates match before enabling automation.
+Set `CFG_diagnosticMode = true` and run the macro. It will test one template at a time:
+- For each template, the log tells you which element to look for
+- Navigate to the game screen where that element appears
+- The macro detects it WITHOUT tapping
+- It moves to the next template after each check
+- Never taps anything
+
+Use this to confirm your templates match before enabling automation.
 
 ## 7. Test mode
 
-Set `CFG_testMode = true` and run the macro. It performs complete fishing cycles until ONE succeeds, then stops. If a cycle fails, it retries. Use this to verify the full flow end-to-end once before leaving it running.
+Set `CFG_testMode = true` and run the macro. It performs complete fishing cycles until ONE succeeds, then stops. If a cycle fails (e.g., collect button not found), it retries safely. A cycle only counts as successful when ALL stages including reward collection complete.
 
 ## 8. Run
 

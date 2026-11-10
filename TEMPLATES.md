@@ -19,7 +19,7 @@ The macro does NOT contain hardcoded coordinates. It uses image templates you ca
 The completion banner/screen (`complete`) tells the macro that fishing finished. The Collect button (`collect`) is the actual tap target. These are intentionally separate because:
 - A decorative reward banner may appear without a tappable Collect button
 - The macro must never tap a decorative banner — only the actual Collect button
-- If completion is detected but no Collect button is found, the macro logs and skips the tap
+- If completion is detected but no Collect button is found, the cycle is marked as FAILED and retried
 
 ## How to capture a template (Macrorify)
 
@@ -41,15 +41,15 @@ The completion banner/screen (`complete`) tells the macro that fishing finished.
 
 ## Adjusting detection regions
 
-Regions are relative (0.0 to 1.0) `[left, top, right, bottom]` and scaled to your device at runtime using `Env.deviceW()`/`Env.deviceH()`, so they work across resolutions. Edit the `CFG_region*` variables in the script to narrow each region to the area where that element appears. This avoids accidental taps on unrelated buttons.
+Regions are relative (0.0 to 1.0) `[left, top, right, bottom]` and scaled to your device at runtime using `Env.deviceW()`/`Env.deviceH()` with `.noScale()` for device-pixel coordinates. Edit the `CFG_region*` variables in the script to narrow each region to the area where that element appears. This avoids accidental taps on unrelated buttons.
 
 Example: if the Cast button is always bottom-right, set:
 `CFG_regionCast = [0.55, 0.75, 0.98, 0.98]`
 
 ## OCR fallback keywords
 
-If an image template is not found, the script falls back to OCR keyword matching for non-click stages (prompt appeared, completion). Edit these to match the exact wording shown in your language/version of the game:
+If an image template is not found, the script falls back to OCR text detection for non-click stages (prompt appeared, completion). Edit these to match the exact wording shown in your language/version of the game:
 - `CFG_ocrPrompt`: text expected on the fishing prompt
 - `CFG_ocrComplete`: text expected on the completion screen
 
-Note: Click stages (cast, click/perfect taps, collect) REQUIRE an image match to get a tap target. OCR alone cannot provide coordinates, so OCR-only confirmation will not trigger a tap on those stages. OCR checks repeatedly during the waiting period (not just once after timeout).
+OCR uses `Region.findText()` (text appearing) with a short timeout window (`CFG_ocrShortTimeoutMs`). Click stages (cast, click/perfect taps, collect) REQUIRE an image match to get a tap target. OCR alone cannot provide coordinates, so OCR-only confirmation will not trigger a tap on those stages.

@@ -26,11 +26,11 @@ var CFG_threshold = 0.85
 var CFG_scanRateIdle = 1
 var CFG_scanRateClick = 3
 var CFG_castTimeoutMs = 15000
-var CFG_promptTimeoutMs = 20000
+var CFG_promptTimeoutMs = 15000
 var CFG_fishTimeoutMs = 30000
 var CFG_completeTimeoutMs = 15000
+var CFG_ocrShortTimeoutMs = 3000
 var CFG_maxRetries = 3
-var CFG_idleScanMs = 1000
 var CFG_tapJitterPx = 0
 var CFG_postCastDelayMs = 1500
 var CFG_postCollectDelayMs = 1500
@@ -63,7 +63,6 @@ var ST_stop = false
 var ST_stage = "IDLE"
 var ST_retries = 0
 var ST_cycleCount = 0
-var ST_templatesValid = false
 var ST_cycleSuccess = false
 
 // Required templates: [name, regionArray, label, requiresTap]
@@ -90,7 +89,9 @@ fun stage(name) {
 }
 
 // ============================================================================
-// CONFIG VALIDATION – Validates all configuration values before starting
+// CONFIG VALIDATION – Validates ONLY configuration values.
+// Does NOT check visual template visibility. An invisible UI element is NOT
+// treated as a missing image resource here; that is handled by diagnostic mode.
 // ============================================================================
 fun validateConfig() {
     log("=== CONFIG VALIDATION ===")
@@ -124,6 +125,11 @@ fun validateConfig() {
 
     if (CFG_castTimeoutMs <= 0 || CFG_promptTimeoutMs <= 0 || CFG_fishTimeoutMs <= 0 || CFG_completeTimeoutMs <= 0) {
         log("ERROR: All timeouts must be greater than 0")
+        ok = false
+    }
+
+    if (CFG_ocrShortTimeoutMs <= 0) {
+        log("ERROR: ocrShortTimeoutMs must be greater than 0")
         ok = false
     }
 
@@ -175,6 +181,7 @@ fun validateConfig() {
 // ============================================================================
 // REGION & DETECTION HELPERS
 // rel is [left, top, right, bottom] in 0.0–1.0 relative coordinates
+// Device-pixel coordinates are passed with .noScale() to prevent auto-scaling.
 // ============================================================================
 fun regionFor(rel) {
     var w = Env.deviceW()
@@ -194,7 +201,7 @@ fun regionFor(rel) {
 }
 
 fun fparamForFind(timeoutMs, scanRate) {
-    return FParam.timeout(timeoutMs).sRate(scanRate).mScore(CFG_threshold)
+    return FParam(timeoutMs, scanRate, CFG_threshold)
 }
 
 fun findImage(templateName, rel, timeoutMs, scanRate) {
@@ -202,13 +209,21 @@ fun findImage(templateName, rel, timeoutMs, scanRate) {
     return reg.find(templateName, fparamForFind(timeoutMs, scanRate))
 }
 
-fun waitForText(keyword, rel, timeoutMs) {
+// OCR text detection that checks repeatedly during the timeout period.
+// Uses Region.findText() (text appearing), NOT Region.waitText() (text disappearing).
+fun findTextOCR(keyword, rel, timeoutMs, scanRate) {
     var reg = regionFor(rel)
-    return reg.waitText(keyword, timeoutMs)
+    var tparam = TParam(timeoutMs, scanRate, CFG_threshold)
+    var results = reg.findText(keyword, tparam)
+    if (results != null && results.size > 0) {
+        return true
+    }
+    return false
 }
 
 fun readText(rel) {
-    var t = regionFor(rel).readAsString()
+    var tparam = TParam(0, CFG_scanRateIdle)
+    var t = regionFor(rel).readAsString(tparam, "")
     if (t == null) { return "" }
     return String(t)
 }
@@ -219,60 +234,52 @@ fun textContains(text, keyword) {
 }
 
 // ============================================================================
-// STARTUP TEMPLATE VALIDATION
-// Checks each template independently. Does NOT expect all gameplay-state
-// images to be visible simultaneously. User should have the relevant screen
-// visible when running validation for each template.
+// STARTUP TEMPLATE VALIDATION – INFORMATIONAL ONLY.
+// Does NOT stop the macro. A template not visible on the current screen is
+// NOT treated as missing; the user may be on a different fishing stage.
+// Strict validation is informational and never fails startup based on
+// the currently visible game screen.
 // ============================================================================
 fun validateTemplates() {
-    log("=== STARTUP TEMPLATE VALIDATION ===")
+    log("=== STARTUP TEMPLATE CHECK (informational) ===")
     log("Device: " + Env.deviceW() + "x" + Env.deviceH())
-    log("Mode: " + (CFG_diagnosticMode ? "DIAGNOSTIC (no taps)" : "AUTOMATION") +
-        " | TestMode: " + CFG_testMode +
-        " | FishMode: " + CFG_fishMode +
-        " | TapSpeed: " + CFG_tapSpeedTps + " tps (measure and adjust for your device)")
+    log("Note: Templates are checked against the CURRENT screen only.")
+    log("Not all fishing-stage templates are visible simultaneously.")
 
-    var allFound = true
+    var foundCount = 0
 
     for (var i = 0; i < REQUIRED_TEMPLATES.size; i = i + 1) {
         var tpl = REQUIRED_TEMPLATES[i]
         var name = tpl[0]
         var rel = tpl[1]
         var label = tpl[2]
-        var requiresTap = tpl[3]
 
-        // Short find to check if template resource exists and is currently visible
+        // Short find to check if template is visible on the current screen
         var reg = regionFor(rel)
-        var match = reg.find(name, FParam.timeout(1500).sRate(2).mScore(CFG_threshold))
+        var match = reg.find(name, FParam(1500, 2, CFG_threshold))
 
         if (match != null) {
-            log("VALIDATED: " + label + " (" + name + ") found on screen (score=" + match.getScore() + ")")
+            log("VISIBLE: " + label + " (" + name + ") on current screen (score=" + match.getScore() + ")")
+            foundCount = foundCount + 1
         } else {
-            log("NOT VISIBLE: " + label + " (" + name + ") not found on screen")
-            log("  -> Capture \"" + name + "\" in Macrorify Resources -> Images")
-            log("  -> Navigate to the game screen where this element appears, then re-run validation")
-            allFound = false
+            log("NOT ON SCREEN: " + label + " (" + name + ")")
+            log("  -> Navigate to the stage where this appears, or use Diagnostic Mode")
         }
     }
 
-    ST_templatesValid = allFound
-    log("=== VALIDATION " + (allFound ? "PASSED" : "FAILED") + " ===")
-
-    if (!allFound && CFG_strictValidation) {
-        log("Strict validation enabled: stopping macro. Fix missing templates first.")
-        Sys.stop()
-        return false
-    }
-    return true
+    log("=== TEMPLATE CHECK: " + foundCount + "/" + REQUIRED_TEMPLATES.size + " visible on current screen ===")
+    return true // Always returns true; template visibility is informational, not a gate
 }
 
 // ============================================================================
-// DIAGNOSTIC MODE – Detect each template independently WITHOUT tapping
-// User should navigate to each game screen state before running diagnostic
+// DIAGNOSTIC MODE – Detect one template at a time, WITHOUT tapping.
+// User navigates between fishing stages manually. Never assumes all templates
+// are visible simultaneously. Never taps anything.
 // ============================================================================
 fun runDiagnostic() {
     log("=== DIAGNOSTIC MODE (detection only, no taps) ===")
-    log("Navigate to each game screen state, then run diagnostic")
+    log("Navigate to each fishing stage when prompted by the log messages.")
+    log("Do NOT tap anything; this mode only detects.")
 
     var foundCount = 0
 
@@ -283,15 +290,22 @@ fun runDiagnostic() {
         var label = tpl[2]
         var requiresTap = tpl[3]
 
-        var match = findImage(name, rel, 3000, CFG_scanRateIdle)
+        log("=== LOOKING FOR: " + label + " (" + name + ") ===")
+        log("Navigate to the game screen where this element appears now.")
+
+        var reg = regionFor(rel)
+        var match = reg.find(name, FParam(5000, CFG_scanRateIdle, CFG_threshold))
+
         if (match != null) {
             var p = match.getPoint()
             log("DETECTED: " + label + " at (" + p.getX() + "," + p.getY() + ") score=" + match.getScore())
             foundCount = foundCount + 1
         } else {
-            var text = readText(rel)
-            log("NOT DETECTED: " + label + " | OCR text=\"" + text + "\"")
+            log("NOT DETECTED: " + label + " within 5000ms timeout.")
         }
+
+        // Small pause between template checks so user can navigate
+        wait(1000)
     }
 
     log("=== DIAGNOSTIC COMPLETE ===")
@@ -310,6 +324,8 @@ fun holdPoint(point) {
 }
 
 fun intervalMs() {
+    // Returns the target interval between taps. This is a configuration value;
+    // the actual achievable TPS must be measured on the target device.
     return Math.round(1000 / CFG_tapSpeedTps)
 }
 
@@ -352,8 +368,9 @@ fun waitForPrompt() {
         return true
     }
 
-    // Fallback: OCR text detection (checks repeatedly during timeout)
-    var textFound = waitForText(CFG_ocrPrompt, CFG_regionPrompt, CFG_promptTimeoutMs)
+    // Fallback: OCR text detection with a SHORT timeout (not stacked sequentially)
+    log("Prompt image not found; trying OCR for short window (" + CFG_ocrShortTimeoutMs + "ms)")
+    var textFound = findTextOCR(CFG_ocrPrompt, CFG_regionPrompt, CFG_ocrShortTimeoutMs, CFG_scanRateIdle)
     if (textFound) {
         log("Fishing prompt confirmed via OCR")
         return true
@@ -382,11 +399,12 @@ fun performFishing(clickMatch) {
         log("Fishing: hold mode for " + CFG_holdDurationMs + "ms")
         holdPoint(point)
     } else {
-        log("Fishing: tap mode at " + CFG_tapSpeedTps + " tps (measure and adjust for your device)")
+        log("Fishing: tap mode at configured " + CFG_tapSpeedTps + " tps (measure actual TPS on your device)")
         var endTime = Sys.currentTime() + CFG_fishTimeoutMs
         var interval = intervalMs()
 
         while (Sys.currentTime() < endTime && ST_running && !ST_stop) {
+            // Keep tapping dependent on successful image detection each iteration
             var m = findImage(CFG_tmplClick, CFG_regionClick, 500, CFG_scanRateClick)
             if (m == null) {
                 log("Click indicator lost during tap sequence")
@@ -410,8 +428,9 @@ fun waitForComplete() {
         return match
     }
 
-    // Fallback: OCR text detection (checks repeatedly during timeout)
-    var textFound = waitForText(CFG_ocrComplete, CFG_regionComplete, CFG_completeTimeoutMs)
+    // Fallback: OCR text detection with a SHORT timeout (not stacked sequentially)
+    log("Completion image not found; trying OCR for short window (" + CFG_ocrShortTimeoutMs + "ms)")
+    var textFound = findTextOCR(CFG_ocrComplete, CFG_regionComplete, CFG_ocrShortTimeoutMs, CFG_scanRateIdle)
     if (textFound) {
         log("Fishing completion confirmed via OCR")
         return true
@@ -434,7 +453,8 @@ fun waitForCollect() {
 
 // ============================================================================
 // SINGLE FISHING CYCLE
-// Returns true only if all stages completed successfully
+// A cycle is successful ONLY when ALL required stages succeed, including
+// reward collection. Unsuccessful cycles are retried safely.
 // ============================================================================
 fun runCycle() {
     ST_cycleCount = ST_cycleCount + 1
@@ -476,13 +496,15 @@ fun runCycle() {
     if (!ST_running || ST_stop) { return false }
 
     // Stage 6: Collect reward (separate tap target from completion detection)
+    // Cycle is NOT successful if reward collection fails
     var collect = waitForCollect()
     if (collect == null) {
-        log("Completion detected but Collect button not found; skipping tap")
-    } else {
-        tapMatch(collect)
-        log("Reward collected at Collect button")
+        log("CYCLE FAILED: Completion detected but Collect button not found")
+        recovery()
+        return false
     }
+    tapMatch(collect)
+    log("Reward collected at Collect button")
 
     resetRetries()
     ST_cycleSuccess = true
@@ -504,19 +526,15 @@ fun main() {
 
     log("Steal An Egg Fishing Macro started")
 
-    // Config validation
+    // Config validation only (no visual template check at startup)
     if (!validateConfig()) {
         ST_running = false
         log("Macro stopped due to config validation failure")
         return
     }
 
-    // Startup template validation
-    if (!validateTemplates()) {
-        ST_running = false
-        log("Macro stopped due to template validation failure")
-        return
-    }
+    // Informational template check (never stops the macro)
+    validateTemplates()
 
     // Diagnostic mode: detect without tapping, then stop
     if (CFG_diagnosticMode) {
@@ -536,7 +554,7 @@ fun main() {
                 log("Test mode: completed 1 successful cycle. Stopping.")
                 ST_stop = true
             } else {
-                log("Test mode: cycle did not complete successfully. Retrying.")
+                log("Test mode: cycle did not complete successfully. Retrying safely.")
             }
         }
     }
