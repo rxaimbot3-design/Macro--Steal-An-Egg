@@ -6,6 +6,7 @@ A fully automatic Android macro for the Roblox game "Steal an Egg" using Macrori
 - No root, no Delta, no executor, no PC required
 - Uses image detection and OCR instead of fixed timing
 - Automatically repeats the complete fishing process
+- Includes auto-clicker mode for rapid repeated clicks on detected targets
 
 ## Package contents
 
@@ -28,9 +29,10 @@ A fully automatic Android macro for the Roblox game "Steal an Egg" using Macrori
 
 ## Modes
 
+- **Fishing automation** (default): Repeats the complete fishing cycle (cast → wait for prompt → fish → completion → collect → recast).
 - **Diagnostic mode** (`CFG_diagnosticMode = true`): Detects all UI elements WITHOUT tapping. Run this first to verify your templates match.
 - **Test mode** (`CFG_testMode = true`): Performs complete fishing cycles until ONE succeeds, then stops.
-- **Strict validation** (`CFG_strictValidation = true`): Stops the macro on startup if any template is missing.
+- **Auto-clicker mode** (`CFG_autoClickerEnabled = true`): Detects target images and clicks their center exactly `CFG_autoClickerRepeatCount` times at `CFG_autoClickerIntervalMs` interval. Includes duplicate-trigger prevention.
 
 ## Important
 

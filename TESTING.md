@@ -25,6 +25,20 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 4. Confirm taps land on the correct UI elements, not nearby buttons.
 5. If a cycle fails, it retries — testMode only stops after a SUCCESSFUL cycle.
 
+## Auto-clicker mode testing
+
+1. Set `CFG_autoClickerEnabled = true` in the script.
+2. Configure `CFG_autoClickerTemplates` with the template(s) you want to auto-click (e.g. `["cast_button", "collect"]`).
+3. Set `CFG_autoClickerRepeatCount = 20` and `CFG_autoClickerIntervalMs = 50` for 20 clicks at 20 clicks/second.
+4. Run the macro.
+5. Place the target image on screen. The macro should:
+   - Detect the image
+   - Click its center exactly 20 times
+   - Wait 50ms between each click
+   - Not click again until the target disappears and reappears
+6. Verify no clicks occur on unrelated UI elements.
+7. Set `CFG_autoClickerEnabled = false` when done testing auto-clicker.
+
 ## Per-stage testing
 
 ### Stage 1 — Detect the fishing area / Cast button
@@ -87,6 +101,8 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 | Stop pressed | Script engine stops; `Macro stopped` toast |
 | Missing template on startup | Logs `NOT VISIBLE` for each; stops if `CFG_strictValidation = true` |
 | Invalid config value | Logs `ERROR` and stops before starting automation |
+| Auto-clicker: target not found | Continues scanning, no taps occur |
+| Auto-clicker: duplicate trigger | Ignored while `ST_autoClickerProcessing` is true |
 
 ## Battery-friendly scan
 
@@ -94,3 +110,4 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 - Use `CFG_scanRateClick = 3` for more responsive click-indicator detection.
 - Raise `CFG_loopDelayMs` between cycles.
 - Lower screen brightness while running.
+- Auto-clicker scans at `CFG_idleScanMs` intervals when idle (default 1000ms).
