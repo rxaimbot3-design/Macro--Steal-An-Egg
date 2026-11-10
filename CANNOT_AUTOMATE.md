@@ -11,7 +11,7 @@ These are inherent limits of an accessibility-based macro on non-rooted Android 
 5. **Region and threshold tuning** — `CFG_region*`, `CFG_threshold`, `CFG_tapSpeedTps`, `CFG_holdDurationMs`, `CFG_scanRateIdle`, and `CFG_scanRateClick` must be adjusted per device/version; there is no universal value.
 6. **Exact fishing mechanics** — The script does not assume how the Click Fast / Perfect minigame works internally. You must set `CFG_fishMode` (`tap` or `hold`) and `CFG_holdDurationMs` to match the actual game behavior.
 7. **Tap speed measurement** — `CFG_tapSpeedTps` must be measured on your device. The default value of 5 is a configuration value, not a guaranteed achievable rate.
-8. **Template resource existence** — Macrorify EMScript has no API to directly check whether a template name exists in Resources. Startup validation checks the current screen only; a "not on screen" result means either the template is missing from Resources OR it is not currently visible on the current fishing stage.
+8. **Template resource existence** — Macrorify EMScript has no API to directly check whether a template name exists in Resources. Startup validation checks the current screen only; a "not on screen" result means either the template is missing from Resources OR it is not currently visible on the current fishing stage. Resource existence cannot be distinguished from visibility through screen matching alone.
 9. **Navigation between game screens** — Diagnostic mode requires you to manually navigate to each game screen state so the corresponding template is visible.
 
 ## Features that are automated (with limits)
@@ -21,11 +21,12 @@ These are inherent limits of an accessibility-based macro on non-rooted Android 
 - **Avoid accidental taps** — Addressed by narrow detection regions + required image match before every tap. Tap stages require an image match to obtain a tap target; OCR-only confirmation never triggers a tap. `CFG_tapJitterPx = 0` ensures precise tapping by default.
 - **Startup config validation** — `validateConfig()` checks all configuration values (tap speed, fish mode, threshold, scan rates, timeouts, regions, template names) before starting automation. Invalid values stop the macro.
 - **Informational template check** — `validateTemplates()` checks templates against the current screen only; it never stops the macro. Strict validation is informational and does not fail based on the currently visible fishing stage.
-- **Diagnostic mode** — `CFG_diagnosticMode = true` tests one template at a time, detects UI elements WITHOUT tapping, so you can verify templates before running automation.
-- **Test mode** — `CFG_testMode = true` runs complete cycles until ONE succeeds, then stops. Failed cycles (including failed reward collection) retry safely. A cycle only counts as successful when ALL stages including collect complete.
+- **Diagnostic mode** — `CFG_diagnosticMode = true` tests one template at a time (or all if `CFG_diagnosticTemplate` is empty), detects UI elements WITHOUT tapping, so you can verify templates before running automation.
+- **Test mode** — `CFG_testMode = true` runs complete cycles until ONE succeeds, then stops. Failed cycles (including failed collect verification) retry safely, capped by `CFG_testMaxAttempts`. A cycle only counts as successful when ALL stages including collect verification complete.
+- **Collect verification** — After tapping Collect, the macro verifies the Collect button disappeared from screen. If it doesn't, the cycle is marked FAILED and retried. This prevents false success from tapping a non-responsive button.
 - **Battery-friendly scanning** — Implemented via `CFG_scanRateIdle` (scans per second) in `FParam` and `wait()` delays between cycles. Continuous screen-on fishing still drains battery; lower brightness and reduce scan rate to help.
 - **Recovery if the fishing sequence fails** — Implemented: each stage has a timeout; on failure the script recovers and starts the next cycle from cast. It does not re-walk to the fishing spot or re-equip the rod.
-- **Separate completion vs. collect** — Completion detection (`complete` template/OCR) is separate from Collect button tap (`collect` template). The macro never taps a decorative reward banner. Cycle success requires collect to succeed.
+- **Separate completion vs. collect** — Completion detection (`complete` template/OCR) is separate from Collect button tap (`collect` template). The macro never taps a decorative reward banner. Cycle success requires collect AND verification to succeed.
 
 ## What the script does not assume
 
@@ -44,17 +45,16 @@ These are inherent limits of an accessibility-based macro on non-rooted Android 
 - `Region.noScale()` — disables scaling for device-pixel coordinates
 - `region.find(name, FParam)` — image detection with timeout/scanRate/matchScore
 - `region.findText(text, TParam)` — OCR text detection for appearing text
-- `region.readAsString(TParam, defaultValue)` — OCR text reading (one-shot)
-- `region.wait(ms)` — region-level wait delay
+- `region.readAsString()` — OCR text reading (no parameters per official API)
 - `FParam(timeout, sRate, mScore)` — find parameters (constructor positional)
-- `TParam(timeout, sRate, mScore, ...)` — text find parameters
+- `TParam(timeout, sRate, mScore, scale, mode, whitelist, blacklist, case)` — text find parameters
 - `Match.getPoint()`, `Match.getScore()` — match result
 - `click(Point, CParam)` — tap at a point
 - `CParam.random(px)`, `CParam.hold(ms)` — click parameters
 - `Sys.toast()`, `Sys.log()` — user-visible and console logging
 - `Sys.stop()` — emergency stop
 - `Sys.currentTime()` — current time in milliseconds
-- `wait(ms)` — global delay
+- `wait(ms)` — delay
 - `Point(x, y)` — coordinates
 - `fun name(params) { }` — EMScript function declaration
 - `var` — variable declaration

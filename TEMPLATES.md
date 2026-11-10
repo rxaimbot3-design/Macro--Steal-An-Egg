@@ -19,7 +19,7 @@ The macro does NOT contain hardcoded coordinates. It uses image templates you ca
 The completion banner/screen (`complete`) tells the macro that fishing finished. The Collect button (`collect`) is the actual tap target. These are intentionally separate because:
 - A decorative reward banner may appear without a tappable Collect button
 - The macro must never tap a decorative banner — only the actual Collect button
-- If completion is detected but no Collect button is found, the cycle is marked as FAILED and retried
+- After tapping Collect, the macro verifies the Collect UI disappeared (collection confirmed). If it doesn't disappear, the cycle is marked FAILED and retried.
 
 ## How to capture a template (Macrorify)
 

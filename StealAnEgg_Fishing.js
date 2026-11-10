@@ -52,8 +52,9 @@ var CFG_ocrPrompt = "FISH"
 var CFG_ocrComplete = "COMPLETE"
 
 var CFG_diagnosticMode = false
+var CFG_diagnosticTemplate = ""
 var CFG_testMode = false
-var CFG_testMaxRetries = 10
+var CFG_testMaxAttempts = 10
 var CFG_strictValidation = false
 
 // ============================================================================
@@ -65,7 +66,7 @@ var ST_stage = "IDLE"
 var ST_retries = 0
 var ST_cycleCount = 0
 var ST_cycleSuccess = false
-var ST_testRetries = 0
+var ST_testAttempts = 0
 
 // Required templates: [name, regionArray, label, requiresTap]
 // Each template is validated independently. Not all screens are visible at once.
@@ -94,6 +95,9 @@ fun stage(name) {
 // CONFIG VALIDATION – Validates ONLY configuration values.
 // Does NOT check visual template visibility. An invisible UI element is NOT
 // treated as a missing image resource here; that is handled by diagnostic mode.
+// Resource existence cannot be distinguished from visibility through screen
+// matching alone: a template not found on the current screen may simply mean
+// the user is on a different fishing stage, not that the image is missing.
 // ============================================================================
 fun validateConfig() {
     log("=== CONFIG VALIDATION ===")
@@ -140,8 +144,8 @@ fun validateConfig() {
         ok = false
     }
 
-    if (CFG_testMaxRetries < 0) {
-        log("ERROR: testMaxRetries must be 0 or greater")
+    if (CFG_testMaxAttempts < 0) {
+        log("ERROR: testMaxAttempts must be 0 or greater")
         ok = false
     }
 
@@ -216,8 +220,9 @@ fun findImage(templateName, rel, timeoutMs, scanRate) {
     return reg.find(templateName, fparamForFind(timeoutMs, scanRate))
 }
 
-// OCR text detection that checks repeatedly during the timeout period.
+// OCR text detection for APPEARING text.
 // Uses Region.findText() (text appearing), NOT Region.waitText() (text disappearing).
+// TParam signature: TParam(timeout, sRate, mScore, scale, mode, whitelist, blacklist, case)
 fun findTextOCR(keyword, rel, timeoutMs, scanRate) {
     var reg = regionFor(rel)
     var tparam = TParam(timeoutMs, scanRate, CFG_threshold)
@@ -228,9 +233,10 @@ fun findTextOCR(keyword, rel, timeoutMs, scanRate) {
     return false
 }
 
+// Read all OCR text from a region.
+// readAsString() takes no parameters per official API.
 fun readText(rel) {
-    var tparam = TParam(0, CFG_scanRateIdle)
-    var t = regionFor(rel).readAsString(tparam, "")
+    var t = regionFor(rel).readAsString()
     if (t == null) { return "" }
     return String(t)
 }
@@ -252,6 +258,8 @@ fun validateTemplates() {
     log("Device: " + Env.deviceW() + "x" + Env.deviceH())
     log("Note: Templates are checked against the CURRENT screen only.")
     log("Not all fishing-stage templates are visible simultaneously.")
+    log("A template not found on screen does NOT mean the image resource is missing.")
+    log("It may simply mean the user is on a different game stage.")
 
     var foundCount = 0
 
@@ -279,23 +287,32 @@ fun validateTemplates() {
 }
 
 // ============================================================================
-// DIAGNOSTIC MODE – Detect one template at a time, WITHOUT tapping.
+// DIAGNOSTIC MODE – Detect one selected template at a time, WITHOUT tapping.
+// If CFG_diagnosticTemplate is set to a template name, only that template is
+// tested. Otherwise all templates are tested one at a time.
 // User navigates between fishing stages manually. Never assumes all templates
 // are visible simultaneously. Never taps anything.
 // ============================================================================
 fun runDiagnostic() {
     log("=== DIAGNOSTIC MODE (detection only, no taps) ===")
-    log("Navigate to each fishing stage when prompted by the log messages.")
     log("Do NOT tap anything; this mode only detects.")
+    log("Navigate to the game screen where the target element appears.")
 
     var foundCount = 0
+    var testedCount = 0
 
     for (var i = 0; i < REQUIRED_TEMPLATES.size; i = i + 1) {
         var tpl = REQUIRED_TEMPLATES[i]
         var name = tpl[0]
         var rel = tpl[1]
         var label = tpl[2]
-        var requiresTap = tpl[3]
+
+        // If a specific diagnostic template is configured, skip all others
+        if (CFG_diagnosticTemplate != "" && String(CFG_diagnosticTemplate) != String(name)) {
+            continue
+        }
+
+        testedCount = testedCount + 1
 
         log("=== LOOKING FOR: " + label + " (" + name + ") ===")
         log("Navigate to the game screen where this element appears now.")
@@ -316,7 +333,7 @@ fun runDiagnostic() {
     }
 
     log("=== DIAGNOSTIC COMPLETE ===")
-    log("Found: " + foundCount + "/" + REQUIRED_TEMPLATES.size)
+    log("Found: " + foundCount + "/" + testedCount + " tested")
 }
 
 // ============================================================================
@@ -458,10 +475,31 @@ fun waitForCollect() {
     return null
 }
 
+// Verify that the Collect UI has disappeared after tapping Collect.
+// Returns true if Collect button is no longer visible (collection likely succeeded),
+// false if Collect button is still visible (collection may have failed).
+fun verifyCollectCollected() {
+    stage("VERIFY_COLLECT")
+    wait(1000)
+
+    var reg = regionFor(CFG_regionCollect)
+    var stillVisible = reg.find(CFG_tmplCollect, FParam(2000, 2, CFG_threshold))
+
+    if (stillVisible == null) {
+        log("Collect verification: Collect button no longer visible. Collection confirmed.")
+        return true
+    } else {
+        log("Collect verification: Collect button still visible. Collection may have failed.")
+        return false
+    }
+}
+
 // ============================================================================
 // SINGLE FISHING CYCLE
 // A cycle is successful ONLY when ALL required stages succeed, including
-// reward collection. Unsuccessful cycles are retried safely.
+// reward collection AND collect verification. Unsuccessful cycles are retried safely.
+// runCycle() MUST return false if the Collect button is missing.
+// ST_cycleSuccess MUST NOT be true unless all required stages AND collect verification succeeded.
 // ============================================================================
 fun runCycle() {
     ST_cycleCount = ST_cycleCount + 1
@@ -513,6 +551,13 @@ fun runCycle() {
     tapMatch(collect)
     log("Reward collected at Collect button")
 
+    // Stage 7: Verify collection actually happened (Collect UI disappeared)
+    if (!verifyCollectCollected()) {
+        log("CYCLE FAILED: Collect verification failed")
+        recovery()
+        return false
+    }
+
     resetRetries()
     ST_cycleSuccess = true
     stage("IDLE")
@@ -530,7 +575,7 @@ fun main() {
     ST_retries = 0
     ST_cycleCount = 0
     ST_cycleSuccess = false
-    ST_testRetries = 0
+    ST_testAttempts = 0
 
     log("Steal An Egg Fishing Macro started")
 
@@ -557,15 +602,17 @@ fun main() {
         runCycle()
 
         // Test mode: stop only after one successfully completed cycle,
-        // or stop safely after CFG_testMaxRetries unsuccessful attempts.
+        // or stop safely after CFG_testMaxAttempts unsuccessful attempts.
+        // Retry counter is only reset after a genuinely successful cycle.
         if (CFG_testMode) {
             if (ST_cycleSuccess) {
                 log("Test mode: completed 1 successful cycle. Stopping.")
                 ST_stop = true
+                ST_testAttempts = 0
             } else {
-                ST_testRetries = ST_testRetries + 1
-                if (CFG_testMaxRetries > 0 && ST_testRetries >= CFG_testMaxRetries) {
-                    log("Test mode: max retries reached (" + CFG_testMaxRetries + "). Stopping safely.")
+                ST_testAttempts = ST_testAttempts + 1
+                if (CFG_testMaxAttempts > 0 && ST_testAttempts >= CFG_testMaxAttempts) {
+                    log("Test mode: max attempts reached (" + CFG_testMaxAttempts + "). Stopping safely.")
                     ST_stop = true
                 } else {
                     log("Test mode: cycle did not complete successfully. Retrying safely.")
