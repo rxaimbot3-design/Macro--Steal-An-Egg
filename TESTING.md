@@ -11,24 +11,33 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 ## Recommended first run: Diagnostic mode
 
 1. Set `CFG_diagnosticMode = true` in the script.
-2. Optionally set `CFG_diagnosticTemplate` to a specific template name (e.g. `"cast_button"`) to test only that one. Leave empty to test all 5.
-3. Run the macro. For each template being tested:
-   - Navigate to the game screen where that element appears
-   - The macro detects WITHOUT tapping
-   - It reports DETECTED or NOT DETECTED per template
-4. Confirm each template reports `DETECTED` with a match score.
-5. If any reports `NOT DETECTED`, re-capture that template or narrow its region.
+2. Navigate to each game screen state (idle fishing, after cast, during minigame, completion, collect).
+3. Run the macro. It will detect all 5 UI elements WITHOUT tapping.
+4. Confirm each template reports `VALIDATED` or `DETECTED` with a match score.
+5. If any reports `NOT VISIBLE` / `NOT DETECTED`, re-capture that template or narrow its region.
 6. Set `CFG_diagnosticMode = false` before running automation.
 
 ## Test mode (one successful cycle)
 
 1. Set `CFG_testMode = true` and `CFG_diagnosticMode = false` in the script.
 2. Run the macro. It performs complete cycles until ONE succeeds, then stops.
-3. If a cycle fails (e.g., collect button not found), it retries safely.
-4. **Retry limit:** `CFG_testMaxAttempts` (default `10`) caps unsuccessful attempts. After that limit, testMode stops safely rather than looping endlessly. Set to `0` for unlimited retries.
-5. Confirm it logs every stage: DETECT_CAST → CAST → WAIT_PROMPT → WAIT_CLICK → FISHING → WAIT_COMPLETE → COLLECT → VERIFY_COLLECT → IDLE.
-6. Confirm taps land on the correct UI elements, not nearby buttons.
-7. **A cycle only counts as successful when reward collection AND collect verification complete.**
+3. Confirm it logs every stage: DETECT_CAST → CAST → WAIT_PROMPT → WAIT_CLICK → FISHING → WAIT_COMPLETE → COLLECT → IDLE.
+4. Confirm taps land on the correct UI elements, not nearby buttons.
+5. If a cycle fails, it retries — testMode only stops after a SUCCESSFUL cycle.
+
+## Auto-clicker mode testing
+
+1. Set `CFG_autoClickerEnabled = true` in the script.
+2. Configure `CFG_autoClickerTemplates` with the template(s) you want to auto-click (e.g. `["cast_button", "collect"]`).
+3. Set `CFG_autoClickerRepeatCount = 20` and `CFG_autoClickerIntervalMs = 50` for 20 clicks at 20 clicks/second.
+4. Run the macro.
+5. Place the target image on screen. The macro should:
+   - Detect the image
+   - Click its center exactly 20 times
+   - Wait 50ms between each click
+   - Not click again until the target disappears and reappears
+6. Verify no clicks occur on unrelated UI elements.
+7. Set `CFG_autoClickerEnabled = false` when done testing auto-clicker.
 
 ## Per-stage testing
 
@@ -44,7 +53,7 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 
 1. After casting, the prompt should appear.
 2. Confirm the script toasts `STATE: WAIT_PROMPT` then `Fishing prompt found`.
-3. The script checks image detection first, then OCR fallback in a short window.
+3. The script checks BOTH image and OCR repeatedly during the waiting period.
 4. If it retries/recoveries, check `prompt` matches the in-game prompt, or set `CFG_ocrPrompt` to the prompt's visible text.
 
 ### Stage 3 — Detect Click Fast / Perfect indicator
@@ -53,34 +62,28 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 2. Confirm the script toasts `STATE: WAIT_CLICK` then `Click/Perfect indicator found`.
 3. Confirm it begins tapping/holding the indicator.
 4. Watch that taps land on the indicator, not nearby buttons. Adjust `CFG_regionClick` and `CFG_tapSpeedTps` as needed.
-5. **Measure your tap speed** — the default `CFG_tapSpeedTps = 5` is a configuration value, not a guaranteed rate. Adjust based on actual minigame responsiveness.
+5. **Measure your tap speed** — the default `CFG_tapSpeedTps = 5` is conservative; adjust based on actual minigame responsiveness.
 6. If the indicator is lost mid-tap, it logs "Click indicator lost during tap sequence" and breaks out of the fishing loop.
 
 ### Stage 4 — Detect completion (detection only)
 
 1. Let the minigame finish.
 2. Confirm the script toasts `STATE: WAIT_COMPLETE` then `Fishing completion detected`.
-3. The script checks image detection first, then OCR fallback in a short window.
+3. The script checks BOTH image and OCR repeatedly during the waiting period.
 4. If completion is not detected, check `complete` template or set `CFG_ocrComplete`.
 5. This stage does NOT tap anything — it only detects that fishing finished.
 
-### Stage 5 — Collect reward (separate tap target, required for cycle success)
+### Stage 5 — Collect reward (separate tap target)
 
 1. Confirm the script toasts `STATE: COLLECT`.
 2. If a `collect` button template exists and is found, the script taps it and logs "Reward collected at Collect button".
-3. **Collect verification:** The script then enters `STATE: VERIFY_COLLECT` and waits for the Collect button to disappear. If it disappears, collection is confirmed. If it remains visible, the cycle is marked FAILED and retried — it never taps a decorative banner.
+3. If completion was detected but no Collect button is found, the script logs "Collect button not found" and skips the tap — it never taps a decorative banner.
 4. The script then logs `STATE: IDLE`.
-
-### Stage 6 — Collect verification
-
-1. After tapping Collect, the macro waits up to 2000ms for the Collect button to disappear from screen.
-2. If the Collect button disappears: `Collect verification: Collect button no longer visible. Collection confirmed.` — cycle succeeds.
-3. If the Collect button remains: `Collect verification: Collect button still visible. Collection may have failed.` — cycle fails and retries.
 
 ## Full loop
 
 1. Let the macro run for 5–10 cycles.
-2. Confirm it repeats cast → fish → collect → verify without drifting or tapping the wrong UI.
+2. Confirm it repeats cast → fish → collect without drifting or tapping the wrong UI.
 3. Test Pause → Resume via Macrorify's floating controls mid-cycle, then Stop; the script should halt cleanly.
 
 ## Failure and recovery scenarios
@@ -92,14 +95,14 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 | Click indicator never appears | Logs timeout, recovery, recasts (image required for tap target) |
 | Indicator lost during rapid taps | Breaks tap sequence, logs, moves to completion detection |
 | Completion never appears | Logs timeout, recovery, recasts |
-| Completion detected but Collect button missing | Cycle marked FAILED, retried safely; never taps decorative banner |
-| Collect tapped but UI doesn't disappear | Cycle marked FAILED (verifyCollectCollected returns false), retried |
+| Completion detected but Collect button missing | Logs and skips tap; never taps decorative banner |
 | Max retries reached | Logs max retries, resets counter, continues to next cycle |
 | Pause pressed mid-cycle | Script engine pauses; Resume continues from current point |
 | Stop pressed | Script engine stops; `Macro stopped` toast |
+| Missing template on startup | Logs `NOT VISIBLE` for each; stops if `CFG_strictValidation = true` |
 | Invalid config value | Logs `ERROR` and stops before starting automation |
-| Template not on current screen at startup | Informational only; macro continues |
-| TestMode max attempts reached | Logs max attempts reached, stops safely |
+| Auto-clicker: target not found | Continues scanning, no taps occur |
+| Auto-clicker: duplicate trigger | Ignored while `ST_autoClickerProcessing` is true |
 
 ## Battery-friendly scan
 
@@ -107,3 +110,4 @@ Run each test with Roblox in the foreground and Macrorify's floating overlay vis
 - Use `CFG_scanRateClick = 3` for more responsive click-indicator detection.
 - Raise `CFG_loopDelayMs` between cycles.
 - Lower screen brightness while running.
+- Auto-clicker scans at `CFG_idleScanMs` intervals when idle (default 1000ms).

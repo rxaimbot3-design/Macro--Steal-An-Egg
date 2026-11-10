@@ -31,57 +31,82 @@ Requirements: Android device, Roblox installed, Macrorify installed. No root, no
 
 Open `StealAnEgg_Fishing.js` and adjust the configuration variables at the top:
 
+### Fishing configuration
+
 | Setting | What it does | Default |
 |---|---|---|
-| `CFG_tapSpeedTps` | Target taps per second in Click Fast / Perfect minigame. **Measure this on your device — do not assume it is achievable.** | `5` |
+| `CFG_tapSpeedTps` | Clicks per second in Click Fast / Perfect minigame. **Measure this on your device — do not assume a value.** | `5` |
 | `CFG_fishMode` | `'tap'` (rapid tapping) or `'hold'` (long press) for the minigame | `'tap'` |
 | `CFG_holdDurationMs` | Hold duration in ms when `CFG_fishMode === 'hold'` | `600` |
 | `CFG_threshold` | Image match sensitivity (0.0–1.0), higher = stricter | `0.85` |
 | `CFG_scanRateIdle` | Detection scans per second during idle stages (lower = friendlier on battery) | `1` |
 | `CFG_scanRateClick` | Detection scans per second during click-indicator stages (higher = more responsive) | `3` |
 | `CFG_castTimeoutMs` | Max ms to wait for Cast button | `15000` |
-| `CFG_promptTimeoutMs` | Max ms to wait for fishing prompt | `15000` |
+| `CFG_promptTimeoutMs` | Max ms to wait for fishing prompt | `20000` |
 | `CFG_fishTimeoutMs` | Max ms for fishing tap/hold sequence | `30000` |
-| `CFG_completeTimeoutMs` | Max ms to wait for completion | `15000` |
-| `CFG_ocrShortTimeoutMs` | Short ms window for OCR fallback check after image miss | `3000` |
+| `CFG_completeTimeoutMs` | Max ms to wait for completion / collect | `15000` |
 | `CFG_maxRetries` | Max consecutive retries before continuing to next cycle | `3` |
 | `CFG_tapJitterPx` | Jitter radius in pixels added to each tap. **0 = accurate tapping** | `0` |
 | `CFG_regionCast/Prompt/Click/Complete/Collect` | Detection area `[left, top, right, bottom]` (0.0–1.0) | See script |
 | `CFG_tmplCast/Prompt/Click/Complete/Collect` | Template names in Macrorify Resources (no extension) | See script |
 | `CFG_ocrPrompt/Complete` | OCR keyword fallback per stage | `'FISH'`, `'COMPLETE'` |
+
+### Auto-clicker configuration
+
+Set `CFG_autoClickerEnabled = true` to enable auto-clicker mode. In this mode, the macro detects target images and clicks their center exactly `CFG_autoClickerRepeatCount` times with `CFG_autoClickerIntervalMs` between clicks.
+
+| Setting | What it does | Default |
+|---|---|---|
+| `CFG_autoClickerEnabled` | `true` = run auto-clicker mode instead of fishing automation | `false` |
+| `CFG_autoClickerRepeatCount` | Number of clicks per successful detection | `20` |
+| `CFG_autoClickerIntervalMs` | Milliseconds between clicks (50ms = 20 clicks/second) | `50` |
+| `CFG_autoClickerThreshold` | Image match confidence for auto-clicker (0.0–1.0) | `0.85` |
+| `CFG_autoClickerTemplates` | Array of template names to auto-click | `["cast_button", "click_perfect", "collect"]` |
+
+### Other modes
+
+| Setting | What it does | Default |
+|---|---|---|
 | `CFG_diagnosticMode` | `true` = detect UI without tapping (verify templates first) | `false` |
-| `CFG_diagnosticTemplate` | If set, diagnostic tests ONLY this template name (e.g. `"cast_button"`). Empty = test all | `""` |
-| `CFG_testMode` | `true` = run cycles until ONE succeeds, then stop | `false` |
-| `CFG_testMaxAttempts` | Max unsuccessful testMode cycles before stopping safely (0 = unlimited) | `10` |
-| `CFG_strictValidation` | `true` = enable strict informational checks | `false` |
+| `CFG_testMode` | `true` = run exactly ONE successful cycle then stop | `false` |
+| `CFG_strictValidation` | `true` = stop on startup if any template missing | `false` |
 
 ## 5. Startup validation
 
 When you start the macro:
-1. **Config validation**: All configuration values are checked for valid ranges. Invalid values stop the macro before any automation runs.
-2. **Template check (informational)**: Each template is checked against the CURRENT screen only. This is informational — it does NOT stop the macro. Not all fishing-stage templates are visible simultaneously; you may be on a different stage.
+1. **Config validation**: All values are within valid ranges
+2. **Templates**: Each of the 5 templates is checked independently on screen
 
-**Important:** Resource existence cannot be distinguished from visibility through screen matching alone. A template not found on the current screen does NOT mean the image resource is missing — it may simply mean you are on a different fishing stage.
+Template validation does NOT expect all 5 screens to be visible at once. It checks whether each template resource exists and is currently visible. If a template is not visible, navigate to that screen state and re-run.
+
+With `CFG_strictValidation = true`, the macro stops if any template is missing. With `false` (default), it warns but continues.
 
 ## 6. Diagnostic mode (recommended first run)
 
-Set `CFG_diagnosticMode = true` and run the macro. It will test templates WITHOUT tapping anything:
-
-- If `CFG_diagnosticTemplate` is empty: tests all 5 templates one at a time. For each, navigate to the game screen where that element appears, then the macro detects it.
-- If `CFG_diagnosticTemplate` is set (e.g. `"cast_button"`): tests ONLY that template.
-
-Use this to confirm your templates match before enabling automation.
+Set `CFG_diagnosticMode = true` and run the macro. It will detect all 5 UI elements WITHOUT tapping anything and report whether each was found. Navigate to each game screen state before running. Use this to confirm your templates match before enabling automation.
 
 ## 7. Test mode
 
-Set `CFG_testMode = true` and run the macro. It performs complete fishing cycles until ONE succeeds, then stops. If a cycle fails (e.g., collect button not found), it retries safely, up to `CFG_testMaxAttempts` (default 10) unsuccessful attempts. After that limit, testMode stops safely rather than looping endlessly. Set to `0` for unlimited retries.
+Set `CFG_testMode = true` and run the macro. It performs complete fishing cycles until ONE succeeds, then stops. If a cycle fails, it retries. Use this to verify the full flow end-to-end once before leaving it running.
 
-## 8. Run
+## 8. Auto-clicker mode
+
+Set `CFG_autoClickerEnabled = true` and run the macro. In this mode:
+
+1. The macro scans each template listed in `CFG_autoClickerTemplates`
+2. When a target image is detected, it clicks the center exactly `CFG_autoClickerRepeatCount` times (default 20)
+3. Clicks are spaced `CFG_autoClickerIntervalMs` milliseconds apart (default 50ms = 20 clicks/second)
+4. Duplicate triggers are prevented while the same target is being processed
+5. After all clicks complete, the macro waits for the target to disappear before allowing re-trigger
+
+Click confidence uses `CFG_autoClickerThreshold` (separate from fishing `CFG_threshold`).
+
+## 9. Run
 
 - Open Roblox -> Steal an Egg -> go to the fishing area. Make sure the Cast button is visible.
 - Return to Macrorify, select `StealAnEgg_Fishing.js`, press Play/Start.
 - Use Macrorify's floating controls to Pause / Resume / Stop. These pause and resume the script engine directly.
 
-## 9. Stop safely
+## 10. Stop safely
 
 - Press Stop in Macrorify's floating controls, or disable the Accessibility service, to end the macro immediately.
