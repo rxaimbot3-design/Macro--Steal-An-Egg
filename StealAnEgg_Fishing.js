@@ -539,10 +539,11 @@ fun runCycle() {
 // interval between clicks. Prevents duplicate triggers while processing.
 // ============================================================================
 fun autoClickerScan() {
-    if (!CFG_autoClickerEnabled || ST_autoClickerProcessing) { return }
+    if (!CFG_autoClickerEnabled) { return }
 
-    // If currently processing, check if the target is still visible.
-    // If not, reset processing flag to allow future triggers.
+    // If currently processing a click sequence, wait for the target to disappear
+    // before allowing another trigger. This prevents duplicate triggers while
+    // the same target remains visible after the 20-click sequence completes.
     if (ST_autoClickerProcessing) {
         var rel = templateRegion(ST_autoClickerLastTarget)
         if (rel != null) {
@@ -582,8 +583,8 @@ fun autoClickerScan() {
             }
 
             log("Auto-clicker: completed " + CFG_autoClickerRepeatCount + " clicks on " + name)
-            ST_autoClickerProcessing = false
-            ST_autoClickerLastTarget = ""
+            // Do NOT reset ST_autoClickerProcessing here. The next scan cycle
+            // will check if the target has disappeared before allowing re-trigger.
             return
         }
     }
